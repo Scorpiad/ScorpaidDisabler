@@ -1,58 +1,69 @@
-// 1. Firebase Configuration
+// 1. Your Firebase Configuration (COPY THIS FROM FIREBASE CONSOLE)
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_PROJECT_ID.appspot.com",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
+    apiKey: "YOUR_API_KEY",
+    authDomain: "YOUR_PROJECT_ID.firebaseapp.com",
+    projectId: "YOUR_PROJECT_ID",
+    storageBucket: "YOUR_PROJECT_ID.appspot.com",
+    messagingSenderId: "YOUR_SENDER_ID",
+    appId: "YOUR_APP_ID"
 };
 
-// 2. Initialize Firebase
+// 2. Initialize Firebase and Firestore
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 
-// 3. UI References
+// 3. UI Element References
 const chatBox = document.getElementById('chat-box');
 const sendBtn = document.getElementById('send-btn');
 const messageInput = document.getElementById('message');
 const usernameInput = document.getElementById('username');
 
-// 4. Send Message Function
-sendBtn.onclick = () => {
-  const user = usernameInput.value || "Anonymous";
-  const text = messageInput.value;
+// 4. Function to Send Message
+const sendMessage = () => {
+    const user = usernameInput.value.trim() || "Anonymous";
+    const text = messageInput.value.trim();
 
-  if (text.trim() !== "") {
-    db.collection("messages").add({
-      name: user,
-      text: text,
-      timestamp: firebase.firestore.FieldValue.serverTimestamp()
-    });
-    messageInput.value = ""; // Clear input after sending
-  }
+    if (text !== "") {
+        db.collection("messages").add({
+            name: user,
+            text: text,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        })
+        .then(() => {
+            messageInput.value = ""; // Clear input on success
+        })
+        .catch((error) => {
+            console.error("Error sending message: ", error);
+        });
+    }
 };
 
-// 5. Allow "Enter" key to send
+// Trigger send on Click
+sendBtn.onclick = sendMessage;
+
+// Trigger send on "Enter" key
 messageInput.addEventListener('keypress', (e) => {
-  if (e.key === 'Enter') {
-    sendBtn.click();
-  }
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
 });
 
-// 6. Listen for Real-time Updates
-db.collection("messages").orderBy("timestamp")
-  .onSnapshot((snapshot) => {
-    chatBox.innerHTML = ""; // Clear for refresh
-    snapshot.forEach((doc) => {
-      const data = doc.data();
-      const msgDiv = document.createElement('div');
-      msgDiv.className = "msg";
-      
-      // Use textContent to prevent XSS (Security)
-      msgDiv.textContent = `${data.name}: ${data.text}`;
-      chatBox.appendChild(msgDiv);
+// 5. Listen for Real-time Updates
+db.collection("messages")
+    .orderBy("timestamp", "asc") // Sort by time so new messages are at bottom
+    .onSnapshot((snapshot) => {
+        chatBox.innerHTML = ""; // Clear existing messages to prevent duplicates
+        
+        snapshot.forEach((doc) => {
+            const data = doc.data();
+            const msgDiv = document.createElement('div');
+            msgDiv.className = "msg";
+            
+            // Securely set text to avoid script injection (XSS)
+            msgDiv.textContent = `${data.name}: ${data.text}`;
+            chatBox.appendChild(msgDiv);
+        });
+
+        // Auto-scroll to the latest message
+        chatBox.scrollTop = chatBox.scrollHeight;
     });
-    // Auto-scroll to bottom
-    chatBox.scrollTop = chatBox.scrollHeight;
-  });
